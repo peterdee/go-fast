@@ -3,5 +3,6 @@ package main
 import "fmt"
 
 func main() {
-	fmt.Println("here")
+	_, format, openMS, convertMS := GetGrid("./samples/1.jpg")
+	fmt.Println(format, openMS, convertMS)
 }
