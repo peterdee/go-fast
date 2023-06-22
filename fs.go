@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"math"
 	"os"
@@ -21,7 +23,7 @@ func GetGrid(filePath string) ([][]color.Color, string, int, int) {
 	now2 := math.Round(float64(time.Now().UnixNano()) / 1000000)
 	content, format, err := image.Decode(file)
 	if err != nil {
-		log.Fatal("Could not decode the file: ", err, format)
+		log.Fatal("Could not decode the file: ", err)
 	}
 
 	rect := content.Bounds()
