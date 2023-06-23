@@ -5,38 +5,30 @@ import (
 	"image/color"
 )
 
-func clampMax[T uint8](value, max T) T {
-	if value > max {
-		return max
-	}
-	return value
-}
-
-func getPartials(pixel color.Color) (uint8, uint8, uint8, uint8) {
-	r, g, b, a := pixel.RGBA()
-	return uint8(r), uint8(g), uint8(b), uint8(a)
-}
+const BORDER int = 5
+const SAMPLE string = "samples/3.png"
+const THRESHOLD int = 115
 
 func main() {
-	grid, format, _, _ := GetGrid("samples/2.jpg")
+	grid, format, _, _ := GetGrid("samples/3.png")
 
 	height, width := len(grid[0]), len(grid)
 
-	border := 5
-	threshold := 84
+	border := BORDER
+	threshold := uint8(THRESHOLD)
 
 	gray := make([][]color.Color, width)
 	for x := 0; x < width; x += 1 {
 		row := make([]color.Color, height)
 		for y := 0; y < height; y += 1 {
 			r, g, b, a := getPartials(grid[x][y])
-			grayColor := uint8(float32(r+g+b) / 3.0)
-			row[y] = color.RGBA{grayColor, grayColor, grayColor, a}
+			grayColor := uint8((float32(r) + float32(g) + float32(b)) / 3.0)
+			row[y] = color.RGBA{grayColor, grayColor, grayColor, uint8(a)}
 		}
 		gray[x] = row
 	}
 
-	totalCount := 0
+	candidatesCount := 0
 	for x := border; x < width-border; x += 1 {
 		for y := border; y < height-border; y += 1 {
 			pixelGray, _, _, _ := getPartials(gray[x][y])
@@ -57,47 +49,83 @@ func main() {
 			// b14 := gray[x-2][y-2]
 			// b15 := gray[x-1][y-3]
 
-			deltaMax := clampMax(pixelGray+uint8(threshold), 255)
-			deltaMin := pixelGray - uint8(threshold)
+			deltaMax := uint8(clamp(int(pixelGray)+int(threshold), 0, 255))
+			deltaMin := uint8(clamp(int(pixelGray)-int(threshold), 0, 255))
+
+			b0Valid, b4Valid, b8Valid, b12Valid := false, false, false, false
 
 			brighterCount, darkerCount := 0, 0
 			if b0Gray > deltaMax {
 				brighterCount += 1
+				b0Valid = true
 			} else if b0Gray < deltaMin {
 				darkerCount += 1
+				b0Valid = true
 			}
 			if b4Gray > deltaMax {
 				brighterCount += 1
+				b4Valid = true
 			} else if b4Gray < deltaMin {
 				darkerCount += 1
+				b4Valid = true
 			}
 			if b8Gray > deltaMax {
 				brighterCount += 1
+				b8Valid = true
 			} else if b8Gray < deltaMin {
 				darkerCount += 1
+				b8Valid = true
 			}
 			if b12Gray > deltaMax {
 				brighterCount += 1
+				b12Valid = true
 			} else if b12Gray < deltaMin {
 				darkerCount += 1
+				b12Valid = true
 			}
-			if brighterCount != 3 && darkerCount != 3 {
+
+			// skip pixel if both counts are insufficient
+			if brighterCount < 3 && darkerCount < 3 {
 				continue
 			}
-			totalCount += 1
-			fmt.Println(x, y)
 
-			grid[x][y-1] = color.RGBA{255, 0, 0, 255}
-			grid[x+1][y-1] = color.RGBA{255, 0, 0, 255}
-			grid[x+1][y] = color.RGBA{255, 0, 0, 255}
-			grid[x+1][y+1] = color.RGBA{255, 0, 0, 255}
-			grid[x][y+1] = color.RGBA{255, 0, 0, 255}
-			grid[x-1][y+1] = color.RGBA{255, 0, 0, 255}
-			grid[x-1][y] = color.RGBA{255, 0, 0, 255}
-			grid[x-1][y-1] = color.RGBA{255, 0, 0, 255}
+			candidatesCount += 1
+
+			// TODO: determine if point is valid
+			if b0Valid && b4Valid && b8Valid {
+				b1Gray, _, _, _ := getPartials(gray[x+1][y-3])
+				b2Gray, _, _, _ := getPartials(gray[x+2][y-2])
+				b3Gray, _, _, _ := getPartials(gray[x+3][y-1])
+				b5Gray, _, _, _ := getPartials(gray[x+3][y+1])
+				b6Gray, _, _, _ := getPartials(gray[x+2][y+2])
+				b7Gray, _, _, _ := getPartials(gray[x+1][y+3])
+				if b1Gray < deltaMax && b1Gray > deltaMin {
+					continue
+				}
+				if b2Gray < deltaMax && b2Gray > deltaMin {
+					continue
+				}
+				if b3Gray < deltaMax && b3Gray > deltaMin {
+					continue
+				}
+				if b5Gray < deltaMax && b5Gray > deltaMin {
+					continue
+				}
+				if b6Gray < deltaMax && b6Gray > deltaMin {
+					continue
+				}
+				if b7Gray < deltaMax && b7Gray > deltaMin {
+					continue
+				}
+				drawSquare(grid, x, y)
+			}
+
+			if b4Valid && b8Valid && b12Valid {
+
+			}
 		}
 	}
 
-	fmt.Println("total", totalCount)
+	fmt.Println("candidates", candidatesCount)
 	SaveGrid(format, grid)
 }
