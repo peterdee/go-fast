@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
-	_ "image/jpeg"
-	_ "image/png"
+	"image/jpeg"
+	"image/png"
 	"log"
 	"math"
 	"os"
@@ -41,4 +42,33 @@ func GetGrid(filePath string) ([][]color.Color, string, int, int) {
 	}
 	convertMS := int(math.Round(float64(time.Now().UnixNano())/1000000) - now2)
 	return grid, format, openMS, convertMS
+}
+
+func SaveGrid(format string, grid [][]color.Color) int {
+	now := math.Round(float64(time.Now().UnixNano()) / 1000000)
+	xLen, yLen := len(grid), len(grid[0])
+	img := image.NewNRGBA(image.Rect(0, 0, xLen, yLen))
+	for x := 0; x < xLen; x += 1 {
+		for y := 0; y < yLen; y += 1 {
+			img.Set(x, y, grid[x][y])
+		}
+	}
+	name := fmt.Sprintf("%f.%s", now, format)
+	newFile, err := os.Create("results/" + name)
+	if err != nil {
+		log.Fatal("Could not save the file")
+	}
+	defer newFile.Close()
+	if format == "png" {
+		png.Encode(newFile, img.SubImage(img.Rect))
+	} else {
+		jpeg.Encode(
+			newFile,
+			img.SubImage(img.Rect),
+			&jpeg.Options{
+				Quality: 100,
+			},
+		)
+	}
+	return int(math.Round(float64(time.Now().UnixNano())/1000000) - now)
 }
