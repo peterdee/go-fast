@@ -6,7 +6,7 @@ import (
 
 const BORDER int = 5
 const SAMPLE string = "samples/7.png"
-const THRESHOLD int = 40
+const THRESHOLD int = 100
 
 func main() {
 	grid, format, _, _ := GetGrid(SAMPLE)
@@ -99,15 +99,39 @@ func main() {
 					continue
 				}
 
-				// circleIndex := invalidIndexes[0]
-				// if circleIndex == 15 {
+				checkBright := true
+				if darkerCount > brighterCount {
+					checkBright = false
+				}
 
-				// }
-				// for i := 0; i < 16; i += 1 {
-				// 	if value < deltaMax && value > deltaMin {
-				// 		invalidIndexes = append(invalidIndexes, index)
-				// 	}
-				// }
+				// count continuous valid pixels in a circle
+				startIndex := invalidIndexes[0]
+				nextIndex := startIndex + 1
+				if nextIndex > 15 {
+					nextIndex = 0
+				}
+				currentValid := 0
+				maxValid := 0
+				for i := 0; i < 15; i += 1 {
+					point := circle[nextIndex]
+					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
+						currentValid += 1
+					} else {
+						currentValid = 0
+					}
+					if currentValid > maxValid {
+						maxValid = currentValid
+					}
+					nextIndex += 1
+					if nextIndex > 15 {
+						nextIndex = 0
+					}
+				}
+
+				// skip if count is less than 12
+				if maxValid < 12 {
+					continue
+				}
 			}
 
 			pointsCount += 1
