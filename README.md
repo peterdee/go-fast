@@ -1,1 +1,3 @@
-## go-harris-detector
+## go-fast
+
+FAST corner detecor implementation
