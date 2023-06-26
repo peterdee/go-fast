@@ -6,7 +6,12 @@ import (
 
 const BORDER int = 5
 const SAMPLE string = "samples/7.png"
-const THRESHOLD int = 100
+const THRESHOLD int = 40
+
+type Point struct {
+	IntensityDifference float64
+	X, Y                int
+}
 
 func main() {
 	grid, format, _, _ := GetGrid(SAMPLE)
@@ -28,7 +33,7 @@ func main() {
 	}
 
 	candidatesCount := 0
-	pointsCount := 0
+	points := []Point{}
 
 	for x := border; x < width-border; x += 1 {
 		for y := border; y < height-border; y += 1 {
@@ -112,10 +117,12 @@ func main() {
 				}
 				currentValid := 0
 				maxValid := 0
+				intensitySum := 0.0
 				for i := 0; i < 15; i += 1 {
 					point := circle[nextIndex]
 					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
 						currentValid += 1
+						intensitySum += float64(point)
 					} else {
 						currentValid = 0
 					}
@@ -132,13 +139,40 @@ func main() {
 				if maxValid < 12 {
 					continue
 				}
-			}
 
-			pointsCount += 1
-			drawSquare(grid, x, y)
+				// get average intensity
+				intensityAverage := intensitySum / float64(maxValid)
+				intensityDifference := float64(circle[0]) - intensityAverage
+				if intensityAverage > float64(circle[0]) {
+					intensityDifference = intensityAverage - float64(circle[0])
+				}
+
+				points = append(
+					points,
+					Point{
+						IntensityDifference: intensityDifference,
+						X:                   x,
+						Y:                   y,
+					},
+				)
+			}
 		}
 	}
 
-	fmt.Println("candidates", candidatesCount, "points", pointsCount)
+	fmt.Println("candidates", candidatesCount, "points", len(points))
+
+	// TODO: work on point clustering
+	// pointClusters := [][]Point{}
+	// for index, point := range points {
+	// 	if len(pointClusters) == 0 {
+	// 		cluster := []Point{point}
+	// 		pointClusters = append(pointClusters, cluster)
+	// 		continue
+	// 	}
+
+	// }
+	for _, point := range points {
+		drawSquare(grid, point.X, point.Y)
+	}
 	SaveGrid(format, grid)
 }
