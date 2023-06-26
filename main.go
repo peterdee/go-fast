@@ -5,6 +5,7 @@ import (
 )
 
 const BORDER int = 5
+const DISTANCE int = 5
 const SAMPLE string = "samples/7.png"
 const THRESHOLD int = 40
 
@@ -120,9 +121,9 @@ func main() {
 				intensitySum := 0.0
 				for i := 0; i < 15; i += 1 {
 					point := circle[nextIndex]
+					intensitySum += float64(point)
 					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
 						currentValid += 1
-						intensitySum += float64(point)
 					} else {
 						currentValid = 0
 					}
@@ -141,7 +142,7 @@ func main() {
 				}
 
 				// get average intensity
-				intensityAverage := intensitySum / float64(maxValid)
+				intensityAverage := intensitySum / 15
 				intensityDifference := float64(circle[0]) - intensityAverage
 				if intensityAverage > float64(circle[0]) {
 					intensityDifference = intensityAverage - float64(circle[0])
@@ -159,18 +160,33 @@ func main() {
 		}
 	}
 
-	fmt.Println("candidates", candidatesCount, "points", len(points))
-
 	// TODO: work on point clustering
-	// pointClusters := [][]Point{}
-	// for index, point := range points {
-	// 	if len(pointClusters) == 0 {
-	// 		cluster := []Point{point}
-	// 		pointClusters = append(pointClusters, cluster)
-	// 		continue
-	// 	}
+	pointClusters := [][]Point{}
+	clusterIndex := 0
+	for _, point := range points {
+		if len(pointClusters) == 0 {
+			pointClusters = append(pointClusters, []Point{point})
+			continue
+		}
+		lastClusterPoint := pointClusters[clusterIndex][len(pointClusters[clusterIndex])-1]
+		maxX, minX := lastClusterPoint.X, point.X
+		if point.X > lastClusterPoint.X {
+			maxX, minX = point.X, lastClusterPoint.X
+		}
+		maxY, minY := lastClusterPoint.Y, point.Y
+		if point.Y > lastClusterPoint.Y {
+			maxY, minY = point.Y, lastClusterPoint.Y
+		}
+		if maxX-minX < DISTANCE && maxY-minY < DISTANCE {
+			pointClusters[clusterIndex] = append(pointClusters[clusterIndex], point)
+		} else {
+			clusterIndex += 1
+			pointClusters = append(pointClusters, []Point{point})
+		}
+	}
 
-	// }
+	fmt.Println("candidates", candidatesCount, "points", len(points))
+	fmt.Println(len(pointClusters), pointClusters)
 	for _, point := range points {
 		drawSquare(grid, point.X, point.Y)
 	}
