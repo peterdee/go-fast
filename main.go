@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"sort"
 )
 
 const BORDER int = 5
-const DISTANCE int = 5
-const SAMPLE string = "samples/7.png"
-const THRESHOLD int = 40
+const DISTANCE int = 10
+const SAMPLE string = "samples/3.png"
+const THRESHOLD int = 110
 
 type Point struct {
 	IntensityDifference float64
@@ -110,6 +111,7 @@ func main() {
 					checkBright = false
 				}
 
+				// TODO: fix intensity calculation
 				// count continuous valid pixels in a circle
 				startIndex := invalidIndexes[0]
 				nextIndex := startIndex + 1
@@ -160,7 +162,25 @@ func main() {
 		}
 	}
 
-	// TODO: work on point clustering
+	pc := [][]Point{}
+	// ci := 0
+	for i := range points {
+		if len(pc) == 0 {
+			pc = append(pc, []Point{points[i]})
+			continue
+		}
+		// TODO: better clustering
+		// lcp := pc[ci][len(pc[ci])-1]
+		// for j := i; i < len(points); i += 1 {
+
+		// }
+	}
+	// sort points by coordinates
+	// sort.Slice(points, func(i, j int) bool {
+	// 	return points[i].X > points[j].X && points[i].Y > points[j].Y
+	// })
+
+	// fix point clustering
 	pointClusters := [][]Point{}
 	clusterIndex := 0
 	for _, point := range points {
@@ -185,10 +205,21 @@ func main() {
 		}
 	}
 
+	// sort items in the clusters
+	for _, cluster := range pointClusters {
+		if len(cluster) == 1 {
+			continue
+		}
+		sort.Slice(cluster, func(i, j int) bool {
+			return cluster[i].IntensityDifference > cluster[j].IntensityDifference
+		})
+	}
+
 	fmt.Println("candidates", candidatesCount, "points", len(points))
 	fmt.Println(len(pointClusters), pointClusters)
-	for _, point := range points {
-		drawSquare(grid, point.X, point.Y)
+
+	for _, cluster := range pointClusters {
+		drawSquare(grid, cluster[0].X, cluster[0].Y)
 	}
 	SaveGrid(format, grid)
 }
