@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"sort"
 )
 
 const BORDER int = 5
 const DISTANCE int = 10
-const SAMPLE string = "samples/3.png"
-const THRESHOLD int = 110
+const SAMPLE string = "samples/7.png"
+const THRESHOLD int = 40
 
 type Point struct {
 	IntensityDifference float64
@@ -162,64 +161,19 @@ func main() {
 		}
 	}
 
-	pc := [][]Point{}
-	// ci := 0
-	for i := range points {
-		if len(pc) == 0 {
-			pc = append(pc, []Point{points[i]})
-			continue
-		}
-		// TODO: better clustering
-		// lcp := pc[ci][len(pc[ci])-1]
-		// for j := i; i < len(points); i += 1 {
+	pointsToDraw := nmsr(10, points, []Point{})
 
-		// }
-	}
-	// sort points by coordinates
-	// sort.Slice(points, func(i, j int) bool {
-	// 	return points[i].X > points[j].X && points[i].Y > points[j].Y
-	// })
+	fmt.Println(
+		"candidates",
+		candidatesCount,
+		"points pre-nms",
+		len(points),
+		"points to draw",
+		len(pointsToDraw),
+	)
 
-	// fix point clustering
-	pointClusters := [][]Point{}
-	clusterIndex := 0
-	for _, point := range points {
-		if len(pointClusters) == 0 {
-			pointClusters = append(pointClusters, []Point{point})
-			continue
-		}
-		lastClusterPoint := pointClusters[clusterIndex][len(pointClusters[clusterIndex])-1]
-		maxX, minX := lastClusterPoint.X, point.X
-		if point.X > lastClusterPoint.X {
-			maxX, minX = point.X, lastClusterPoint.X
-		}
-		maxY, minY := lastClusterPoint.Y, point.Y
-		if point.Y > lastClusterPoint.Y {
-			maxY, minY = point.Y, lastClusterPoint.Y
-		}
-		if maxX-minX < DISTANCE && maxY-minY < DISTANCE {
-			pointClusters[clusterIndex] = append(pointClusters[clusterIndex], point)
-		} else {
-			clusterIndex += 1
-			pointClusters = append(pointClusters, []Point{point})
-		}
-	}
-
-	// sort items in the clusters
-	for _, cluster := range pointClusters {
-		if len(cluster) == 1 {
-			continue
-		}
-		sort.Slice(cluster, func(i, j int) bool {
-			return cluster[i].IntensityDifference > cluster[j].IntensityDifference
-		})
-	}
-
-	fmt.Println("candidates", candidatesCount, "points", len(points))
-	fmt.Println(len(pointClusters), pointClusters)
-
-	for _, cluster := range pointClusters {
-		drawSquare(grid, cluster[0].X, cluster[0].Y)
+	for i := range pointsToDraw {
+		drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
 	}
 	SaveGrid(format, grid)
 }
