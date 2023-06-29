@@ -5,9 +5,9 @@ import (
 )
 
 const BORDER int = 5
-const DISTANCE int = 10
-const SAMPLE string = "samples/7.png"
-const THRESHOLD int = 40
+const DISTANCE int = 15
+const SAMPLE string = "samples/8.jpg"
+const THRESHOLD int = 120
 
 type Point struct {
 	IntensityDifference float64
@@ -110,7 +110,7 @@ func main() {
 					checkBright = false
 				}
 
-				// TODO: fix intensity calculation
+				// TODO: possible fix for intensity calculation
 				// count continuous valid pixels in a circle
 				startIndex := invalidIndexes[0]
 				nextIndex := startIndex + 1
@@ -161,19 +161,20 @@ func main() {
 		}
 	}
 
-	pointsToDraw := nmsr(10, points, []Point{})
+	pointsToDraw := nmsr(DISTANCE, nmsr(DISTANCE, points, []Point{}), []Point{})
 
 	fmt.Println(
-		"candidates",
+		"candidates:",
 		candidatesCount,
-		"points pre-nms",
+		"points pre-nms:",
 		len(points),
-		"points to draw",
+		"points to draw:",
 		len(pointsToDraw),
 	)
 
 	for i := range pointsToDraw {
 		drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
 	}
+
 	SaveGrid(format, grid)
 }
