@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 )
 
 const BORDER int = 5
@@ -110,7 +111,6 @@ func main() {
 					checkBright = false
 				}
 
-				// TODO: possible fix for intensity calculation
 				// count continuous valid pixels in a circle
 				startIndex := invalidIndexes[0]
 				nextIndex := startIndex + 1
@@ -122,9 +122,9 @@ func main() {
 				intensitySum := 0.0
 				for i := 0; i < 15; i += 1 {
 					point := circle[nextIndex]
-					intensitySum += float64(point)
 					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
 						currentValid += 1
+						intensitySum += math.Abs(float64(pixelGray) - float64(point))
 					} else {
 						currentValid = 0
 					}
@@ -143,7 +143,7 @@ func main() {
 				}
 
 				// get average intensity
-				intensityAverage := intensitySum / 15
+				intensityAverage := intensitySum / float64(maxValid)
 				intensityDifference := float64(circle[0]) - intensityAverage
 				if intensityAverage > float64(circle[0]) {
 					intensityDifference = intensityAverage - float64(circle[0])

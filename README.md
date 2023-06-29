@@ -1,3 +1,3 @@
 ## go-fast
 
-FAST corner detecor implementation
+FAST corner detector implementation
