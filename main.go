@@ -6,9 +6,9 @@ import (
 )
 
 const BORDER int = 5
-const RADIUS int = 10
-const SAMPLE string = "samples/33.jpg"
-const THRESHOLD int = 50
+const RADIUS int = 15
+const SAMPLE string = "samples/7_1.png"
+const THRESHOLD int = 40
 
 type Point struct {
 	IntensityDifference float64
@@ -185,12 +185,12 @@ func main() {
 		len(pointsToDraw),
 	)
 
-	for i := range pointsToDraw {
-		drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
-	}
-	// for i := range points {
-	// 	drawSquare(grid, points[i].X, points[i].Y)
+	// for i := range pointsToDraw {
+	// 	drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
 	// }
+	for i := range points {
+		drawSquare(grid, points[i].X, points[i].Y)
+	}
 
 	SaveGrid(format, grid)
 }

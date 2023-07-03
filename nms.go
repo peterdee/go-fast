@@ -40,16 +40,22 @@ func nms(
 		)
 	}
 	if len(points) == 0 {
-		sort.Slice(
-			cluster,
-			func(i, j int) bool {
-				return cluster[i].IntensityDifference > cluster[j].IntensityDifference
-			},
-		)
+		// add point to selected only if cluster is not empty
+		if len(cluster) > 0 {
+			// sort only if there are several elements in the cluster
+			if len(cluster) > 1 {
+				sort.Slice(
+					cluster,
+					func(i, j int) bool {
+						return cluster[i].IntensityDifference > cluster[j].IntensityDifference
+					},
+				)
+			}
+			selected = append(selected, cluster[0])
+		}
 		fmt.Println("iterations", iteration)
 		fmt.Println("clusters", append(clusters, cluster))
-		x := append(selected, cluster[0])
-		return x
+		return selected
 	}
 	current, rest := points[0], points[1:]
 	if previous.IsEmpty {
