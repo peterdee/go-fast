@@ -7,8 +7,8 @@ import (
 
 const BORDER int = 5
 const RADIUS int = 15
-const SAMPLE string = "samples/7_1.png"
-const THRESHOLD int = 40
+const SAMPLE string = "samples/8.jpg"
+const THRESHOLD int = 120
 
 type Point struct {
 	IntensityDifference float64
@@ -43,10 +43,10 @@ func main() {
 			pixelGray := gray[x][y]
 
 			circle := [16]uint8{}
-			circle[0] = gray[x][y-3]  // 0
-			circle[4] = gray[x+3][y]  // 4
-			circle[8] = gray[x][y+3]  // 8
-			circle[12] = gray[x-3][y] // 12
+			circle[0] = gray[x][y-3]
+			circle[4] = gray[x+3][y]
+			circle[8] = gray[x][y+3]
+			circle[12] = gray[x-3][y]
 
 			deltaMax := uint8(clamp(int(pixelGray)+int(threshold), 0, 255))
 			deltaMin := uint8(clamp(int(pixelGray)-int(threshold), 0, 255))
@@ -73,7 +73,6 @@ func main() {
 				darkerCount += 1
 			}
 
-			// skip pixel if both counts are insufficient
 			if brighterCount < 3 && darkerCount < 3 {
 				continue
 			}
@@ -172,24 +171,19 @@ func main() {
 		[]Point{},
 		[]Point{},
 		false,
-		0,
-		[][]Point{},
 	)
 
 	fmt.Println(
 		"candidates:",
 		candidatesCount,
-		"\npoints pre-nms:",
+		"\npoints before NMS:",
 		len(points),
-		"\npoints to draw:",
+		"\npoints after NMS:",
 		len(pointsToDraw),
 	)
 
-	// for i := range pointsToDraw {
-	// 	drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
-	// }
-	for i := range points {
-		drawSquare(grid, points[i].X, points[i].Y)
+	for i := range pointsToDraw {
+		drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
 	}
 
 	SaveGrid(format, grid)
