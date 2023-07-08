@@ -5,57 +5,99 @@ import (
 	"sort"
 )
 
+// combine clusters if possible
+func combineClusters(
+	cluster []Point,
+	clusters [][]Point,
+	radius int,
+) [][]Point {
+	combine := false
+	lastCluster := clusters[len(clusters)-1]
+	for _, currentClusterPoint := range cluster {
+		for _, lastClusterPoint := range lastCluster {
+			if (currentClusterPoint.X-lastClusterPoint.X) < radius &&
+				int(math.Abs(float64(currentClusterPoint.Y)-float64(lastClusterPoint.Y))) < radius {
+				combine = true
+				break
+			}
+		}
+		if combine {
+			break
+		}
+	}
+	if !combine {
+		return append(clusters, cluster)
+	}
+	clusterEnd := clamp(len(clusters)-2, 0, len(clusters))
+	newClusters := clusters[0:clusterEnd]
+	lastCluster = append(lastCluster, cluster...)
+	sort.SliceStable(
+		lastCluster,
+		func(i, j int) bool {
+			if lastCluster[i].X != lastCluster[j].X {
+				return lastCluster[i].X < lastCluster[j].X
+			}
+			return lastCluster[i].Y < lastCluster[j].Y
+		},
+	)
+	return append(newClusters, lastCluster)
+}
+
 // Non-max suppression (recursive)
-// TODO: improve NMS to handle edge cases
 func nms(
-	points []Point,
+	array []Point,
 	radius int,
 	previous Point,
 	cluster []Point,
-	selected []Point,
+	clusters [][]Point,
 	isSorted bool,
 ) []Point {
-	if !isSorted {
+	if !isSorted && len(array) > 0 {
 		sort.SliceStable(
-			points,
+			array,
 			func(i, j int) bool {
-				if points[i].X != points[j].X {
-					return points[i].X < points[j].X
+				if array[i].X != array[j].X {
+					return array[i].X < array[j].X
 				}
-				return points[i].Y < points[j].Y
+				return array[i].Y < array[j].Y
 			},
 		)
 		return nms(
-			points,
+			array,
 			radius,
 			previous,
 			cluster,
-			selected,
+			clusters,
 			true,
 		)
 	}
-	if len(points) == 0 {
-		if len(cluster) > 0 {
-			if len(cluster) > 1 {
-				sort.Slice(
-					cluster,
-					func(i, j int) bool {
-						return cluster[i].IntensityDifference > cluster[j].IntensityDifference
-					},
-				)
-			}
-			selected = append(selected, cluster[0])
+	if len(array) == 0 {
+		var updatedClusters [][]Point
+		if len(clusters) > 0 {
+			updatedClusters = combineClusters(cluster, clusters, radius)
+		} else {
+			updatedClusters = append(updatedClusters, cluster)
 		}
-		return selected
+		result := []Point{}
+		for _, points := range updatedClusters {
+			sort.SliceStable(
+				points,
+				func(i, j int) bool {
+					return points[i].IntensityDifference > points[j].IntensityDifference
+				},
+			)
+			result = append(result, points[0])
+		}
+		return result
 	}
-	current, rest := points[0], points[1:]
+	current, rest := array[0], array[1:]
 	if previous.IsEmpty {
 		return nms(
 			rest,
 			radius,
 			current,
 			[]Point{current},
-			selected,
+			clusters,
 			true,
 		)
 	}
@@ -66,22 +108,26 @@ func nms(
 			radius,
 			current,
 			append(cluster, current),
-			selected,
+			clusters,
 			true,
 		)
 	}
-	sort.Slice(
-		cluster,
-		func(i, j int) bool {
-			return cluster[i].IntensityDifference > cluster[j].IntensityDifference
-		},
-	)
+	if len(clusters) == 0 {
+		return nms(
+			rest,
+			radius,
+			current,
+			[]Point{current},
+			append(clusters, cluster),
+			true,
+		)
+	}
 	return nms(
 		rest,
 		radius,
 		current,
 		[]Point{current},
-		append(selected, cluster[0]),
+		combineClusters(cluster, clusters, radius),
 		true,
 	)
 }
