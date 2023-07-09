@@ -7,13 +7,14 @@ import (
 
 const BORDER int = 5
 const RADIUS int = 25
-const SAMPLE string = "samples/7.png"
-const THRESHOLD int = 40
+const SAMPLE string = "samples/8.jpg"
+const THRESHOLD int = 140
 
 type Point struct {
-	IntensityDifference float64
-	IsEmpty             bool
-	X, Y                int
+	IntensityDifference float64 `json:"intensity"`
+	IsEmpty             bool    `json:"-"`
+	X                   int     `json:"x"`
+	Y                   int     `json:"y"`
 }
 
 func main() {
@@ -162,7 +163,7 @@ func main() {
 		}
 	}
 
-	pointsToDraw := nms(
+	pointsToDrawX := nms(
 		points,
 		RADIUS,
 		Point{
@@ -171,6 +172,18 @@ func main() {
 		[]Point{},
 		[][]Point{},
 		false,
+		'x',
+	)
+	pointsToDrawY := nms(
+		pointsToDrawX,
+		RADIUS,
+		Point{
+			IsEmpty: true,
+		},
+		[]Point{},
+		[][]Point{},
+		false,
+		'y',
 	)
 
 	fmt.Println(
@@ -179,11 +192,11 @@ func main() {
 		"\npoints before NMS:",
 		len(points),
 		"\npoints after NMS:",
-		len(pointsToDraw),
+		len(pointsToDrawY),
 	)
 
-	for i := range pointsToDraw {
-		drawSquare(grid, pointsToDraw[i].X, pointsToDraw[i].Y)
+	for i := range pointsToDrawY {
+		drawSquare(grid, pointsToDrawY[i].X, pointsToDrawY[i].Y)
 	}
 	// for i := range points {
 	// 	drawSquare(grid, points[i].X, points[i].Y)

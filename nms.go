@@ -10,13 +10,19 @@ func combineClusters(
 	cluster []Point,
 	clusters [][]Point,
 	radius int,
+	primarySortField byte,
 ) [][]Point {
 	combine := false
 	lastCluster := clusters[len(clusters)-1]
 	for _, currentClusterPoint := range cluster {
 		for _, lastClusterPoint := range lastCluster {
-			if (currentClusterPoint.X-lastClusterPoint.X) < radius &&
-				int(math.Abs(float64(currentClusterPoint.Y)-float64(lastClusterPoint.Y))) < radius {
+			primaryDifference := currentClusterPoint.X - lastClusterPoint.X
+			secondaryDifference := int(math.Abs(float64(currentClusterPoint.Y) - float64(lastClusterPoint.Y)))
+			if primarySortField != 'x' {
+				primaryDifference = currentClusterPoint.Y - lastClusterPoint.Y
+				secondaryDifference = int(math.Abs(float64(currentClusterPoint.X) - float64(lastClusterPoint.X)))
+			}
+			if primaryDifference < radius && secondaryDifference < radius {
 				combine = true
 				break
 			}
@@ -34,10 +40,17 @@ func combineClusters(
 	sort.SliceStable(
 		lastCluster,
 		func(i, j int) bool {
-			if lastCluster[i].X != lastCluster[j].X {
+			if primarySortField == 'x' {
+				if lastCluster[i].X != lastCluster[j].X {
+					return lastCluster[i].X < lastCluster[j].X
+				}
+				return lastCluster[i].Y < lastCluster[j].Y
+			} else {
+				if lastCluster[i].Y != lastCluster[j].Y {
+					return lastCluster[i].Y < lastCluster[j].Y
+				}
 				return lastCluster[i].X < lastCluster[j].X
 			}
-			return lastCluster[i].Y < lastCluster[j].Y
 		},
 	)
 	return append(newClusters, lastCluster)
@@ -51,15 +64,23 @@ func nms(
 	cluster []Point,
 	clusters [][]Point,
 	isSorted bool,
+	primarySortField byte,
 ) []Point {
 	if !isSorted && len(array) > 0 {
 		sort.SliceStable(
 			array,
 			func(i, j int) bool {
-				if array[i].X != array[j].X {
+				if primarySortField == 'x' {
+					if array[i].X != array[j].X {
+						return array[i].X < array[j].X
+					}
+					return array[i].Y < array[j].Y
+				} else {
+					if array[i].Y != array[j].Y {
+						return array[i].Y < array[j].Y
+					}
 					return array[i].X < array[j].X
 				}
-				return array[i].Y < array[j].Y
 			},
 		)
 		return nms(
@@ -69,12 +90,13 @@ func nms(
 			cluster,
 			clusters,
 			true,
+			primarySortField,
 		)
 	}
 	if len(array) == 0 {
 		var updatedClusters [][]Point
 		if len(clusters) > 0 {
-			updatedClusters = combineClusters(cluster, clusters, radius)
+			updatedClusters = combineClusters(cluster, clusters, radius, primarySortField)
 		} else {
 			updatedClusters = append(updatedClusters, cluster)
 		}
@@ -99,10 +121,16 @@ func nms(
 			[]Point{current},
 			clusters,
 			true,
+			primarySortField,
 		)
 	}
-	if (current.X-previous.X) < radius &&
-		int(math.Abs(float64(current.Y)-float64(previous.Y))) < radius {
+	primaryDifference := current.X - previous.X
+	secondaryDifference := int(math.Abs(float64(current.Y) - float64(previous.Y)))
+	if primarySortField != 'x' {
+		primaryDifference = current.Y - previous.Y
+		secondaryDifference = int(math.Abs(float64(current.X) - float64(previous.X)))
+	}
+	if primaryDifference < radius && secondaryDifference < radius {
 		return nms(
 			rest,
 			radius,
@@ -110,6 +138,7 @@ func nms(
 			append(cluster, current),
 			clusters,
 			true,
+			primarySortField,
 		)
 	}
 	if len(clusters) == 0 {
@@ -120,6 +149,7 @@ func nms(
 			[]Point{current},
 			append(clusters, cluster),
 			true,
+			primarySortField,
 		)
 	}
 	return nms(
@@ -127,7 +157,8 @@ func nms(
 		radius,
 		current,
 		[]Point{current},
-		combineClusters(cluster, clusters, radius),
+		combineClusters(cluster, clusters, radius, primarySortField),
 		true,
+		primarySortField,
 	)
 }
