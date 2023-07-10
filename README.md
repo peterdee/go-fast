@@ -1,6 +1,6 @@
 ## go-fast
 
-FAST corner detector implementation
+FAST corner detector implementation with Golang
 
 ### License
 

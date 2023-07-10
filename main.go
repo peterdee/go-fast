@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 const BORDER int = 5
 const RADIUS int = 25
-const SAMPLE string = "samples/8.jpg"
-const THRESHOLD int = 140
+const SAMPLE string = "samples/3.png"
+const THRESHOLD int = 80
 
 type Point struct {
 	IntensityDifference float64 `json:"intensity"`
@@ -25,6 +26,7 @@ func main() {
 	border := BORDER
 	threshold := uint8(THRESHOLD)
 
+	grayTimeStart := math.Round(float64(time.Now().UnixNano()))
 	gray := make([][]uint8, width)
 	for x := 0; x < width; x += 1 {
 		row := make([]uint8, height)
@@ -35,10 +37,15 @@ func main() {
 		}
 		gray[x] = row
 	}
+	fmt.Printf(
+		"convert to gray in %f ms\n",
+		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
+	)
 
 	candidatesCount := 0
 	points := []Point{}
 
+	fastTimeStart := math.Round(float64(time.Now().UnixNano()))
 	for x := border; x < width-border; x += 1 {
 		for y := border; y < height-border; y += 1 {
 			pixelGray := gray[x][y]
@@ -163,6 +170,12 @@ func main() {
 		}
 	}
 
+	fmt.Printf(
+		"find all candidates in %f ms\n",
+		(math.Round(float64(time.Now().UnixNano()))-fastTimeStart)/1e+6,
+	)
+
+	nmsXTimeStart := math.Round(float64(time.Now().UnixNano()))
 	pointsToDrawX := nms(
 		points,
 		RADIUS,
@@ -174,6 +187,8 @@ func main() {
 		false,
 		'x',
 	)
+	nmsXTime := (math.Round(float64(time.Now().UnixNano())) - nmsXTimeStart) / 1e+6
+	nmsYTimeStart := math.Round(float64(time.Now().UnixNano()))
 	pointsToDrawY := nms(
 		pointsToDrawX,
 		RADIUS,
@@ -185,6 +200,7 @@ func main() {
 		false,
 		'y',
 	)
+	nmsYTime := (math.Round(float64(time.Now().UnixNano())) - nmsYTimeStart) / 1e+6
 
 	fmt.Println(
 		"candidates:",
@@ -195,12 +211,16 @@ func main() {
 		len(pointsToDrawY),
 	)
 
+	fmt.Printf(
+		"NMS time: %f ms (x) + %f ms (y) = %f ms (total)\n",
+		nmsXTime,
+		nmsYTime,
+		nmsXTime+nmsYTime,
+	)
+
 	for i := range pointsToDrawY {
 		drawSquare(grid, pointsToDrawY[i].X, pointsToDrawY[i].Y)
 	}
-	// for i := range points {
-	// 	drawSquare(grid, points[i].X, points[i].Y)
-	// }
 
 	SaveGrid(format, grid)
 }
