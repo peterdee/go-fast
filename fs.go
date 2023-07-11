@@ -3,60 +3,35 @@ package main
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"log"
-	"math"
 	"os"
 	"time"
 )
 
-func GetGrid(filePath string) ([][]color.Color, string, int, int) {
-	now := math.Round(float64(time.Now().UnixNano()) / 1000000)
-	file, err := os.Open(filePath)
+func decodeSource(path string) (*image.RGBA, string) {
+	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal("Could not open the file: ", err)
 	}
 	defer file.Close()
-	openMS := int(math.Round(float64(time.Now().UnixNano())/1000000) - now)
-	now2 := math.Round(float64(time.Now().UnixNano()) / 1000000)
-	content, format, err := image.Decode(file)
-	if err != nil {
+	content, format, decodingError := image.Decode(file)
+	if decodingError != nil {
 		log.Fatal("Could not decode the file: ", err)
 	}
-
 	rect := content.Bounds()
-	rgba := image.NewRGBA(image.Rect(0, 0, rect.Dx(), rect.Dy()))
-	draw.Draw(rgba, rgba.Bounds(), content, rect.Min, draw.Src)
-
-	var grid [][]color.Color
-	size := rgba.Bounds().Size()
-	for i := 0; i < size.X; i += 1 {
-		var y []color.Color
-		for j := 0; j < size.Y; j += 1 {
-			y = append(y, rgba.At(i, j))
-		}
-		grid = append(grid, y)
-	}
-	convertMS := int(math.Round(float64(time.Now().UnixNano())/1000000) - now2)
-	return grid, format, openMS, convertMS
+	img := image.NewRGBA(rect)
+	draw.Draw(img, img.Bounds(), content, rect.Min, draw.Src)
+	return img, format
 }
 
-func SaveGrid(format string, grid [][]color.Color) int {
-	now := math.Round(float64(time.Now().UnixNano()) / 1000000)
-	xLen, yLen := len(grid), len(grid[0])
-	img := image.NewNRGBA(image.Rect(0, 0, xLen, yLen))
-	for x := 0; x < xLen; x += 1 {
-		for y := 0; y < yLen; y += 1 {
-			img.Set(x, y, grid[x][y])
-		}
-	}
-	name := fmt.Sprintf("%f.%s", now, format)
+func encodeImage(img *image.RGBA, format string) {
+	name := fmt.Sprintf(`file-%d.%s`, time.Now().Unix(), format)
 	newFile, err := os.Create("results/" + name)
 	if err != nil {
-		log.Fatal("Could not save the file")
+		log.Fatal("Could not save the file!")
 	}
 	defer newFile.Close()
 	if format == "png" {
@@ -70,5 +45,4 @@ func SaveGrid(format string, grid [][]color.Color) int {
 			},
 		)
 	}
-	return int(math.Round(float64(time.Now().UnixNano())/1000000) - now)
 }

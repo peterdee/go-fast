@@ -3,40 +3,51 @@ package main
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 	"time"
 )
 
 const BORDER int = 5
 const RADIUS int = 25
-const SAMPLE string = "samples/3.png"
-const THRESHOLD int = 80
+const SAMPLE string = "samples/2.jpg"
+const THRESHOLD int = 120
 
 type Point struct {
-	IntensityDifference float64 `json:"intensity"`
-	IsEmpty             bool    `json:"-"`
-	X                   int     `json:"x"`
-	Y                   int     `json:"y"`
+	IntensityDifference float64
+	IsEmpty             bool
+	X                   int
+	Y                   int
 }
 
 func main() {
-	grid, format, _, _ := GetGrid(SAMPLE)
+	img, format := decodeSource(SAMPLE)
+	width, height := img.Rect.Max.X, img.Rect.Max.Y
 
-	height, width := len(grid[0]), len(grid)
-
-	border := BORDER
 	threshold := uint8(THRESHOLD)
 
+	pixLen := len(img.Pix)
+	threads := runtime.NumCPU()
+	pixPerThread := getPixPerThread(pixLen, threads)
+
+	var wg sync.WaitGroup
+
 	grayTimeStart := math.Round(float64(time.Now().UnixNano()))
-	gray := make([][]uint8, width)
-	for x := 0; x < width; x += 1 {
-		row := make([]uint8, height)
-		for y := 0; y < height; y += 1 {
-			r, g, b, _ := getPartials(grid[x][y])
-			grayColor := uint8((float32(r) + float32(g) + float32(b)) / 3.0)
-			row[y] = grayColor
+	gray := make([]uint8, len(img.Pix))
+	grayscale := func(thread int) {
+		defer wg.Done()
+		startIndex := pixPerThread * thread
+		endIndex := clamp(startIndex+pixPerThread, 0, pixLen)
+		for i := startIndex; i < endIndex; i += 4 {
+			channel := uint8((int(img.Pix[i]) + int(img.Pix[i+1]) + int(img.Pix[i+2])) / 3)
+			gray[i], gray[i+1], gray[i+2], gray[i+3] = channel, channel, channel, img.Pix[i+3]
 		}
-		gray[x] = row
 	}
+	for t := 0; t < threads; t += 1 {
+		wg.Add(1)
+		go grayscale(t)
+	}
+	wg.Wait()
 	fmt.Printf(
 		"convert to gray in %f ms\n",
 		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
@@ -46,18 +57,28 @@ func main() {
 	points := []Point{}
 
 	fastTimeStart := math.Round(float64(time.Now().UnixNano()))
-	for x := border; x < width-border; x += 1 {
-		for y := border; y < height-border; y += 1 {
-			pixelGray := gray[x][y]
+	fast := func(thread int) {
+		defer wg.Done()
+		startIndex := pixPerThread * thread
+		endIndex := clamp(startIndex+pixPerThread, 0, pixLen)
+		for i := startIndex; i < endIndex; i += 4 {
+			x, y := getCoordinates(i/4, width)
+
+			// skip border pixels
+			if x < BORDER || x > width-BORDER ||
+				y < BORDER || y > height-BORDER {
+				continue
+			}
 
 			circle := [16]uint8{}
-			circle[0] = gray[x][y-3]
-			circle[4] = gray[x+3][y]
-			circle[8] = gray[x][y+3]
-			circle[12] = gray[x-3][y]
+			grayPixel := gray[i]
+			circle[0] = gray[getPixel(x, y-3, width)]
+			circle[4] = gray[getPixel(x+3, y, width)]
+			circle[8] = gray[getPixel(x, y+3, width)]
+			circle[12] = gray[getPixel(x-3, y, width)]
 
-			deltaMax := uint8(clamp(int(pixelGray)+int(threshold), 0, 255))
-			deltaMin := uint8(clamp(int(pixelGray)-int(threshold), 0, 255))
+			deltaMax := uint8(clamp(int(grayPixel)+int(threshold), 0, 255))
+			deltaMin := uint8(clamp(int(grayPixel)-int(threshold), 0, 255))
 
 			brighterCount, darkerCount := 0, 0
 			if circle[0] > deltaMax {
@@ -87,20 +108,19 @@ func main() {
 
 			candidatesCount += 1
 
-			circle[1] = gray[x+1][y-3]
-			circle[2] = gray[x+2][y-2]
-			circle[3] = gray[x+3][y-1]
-			circle[5] = gray[x+3][y+1]
-			circle[6] = gray[x+2][y+2]
-			circle[7] = gray[x+1][y+3]
-			circle[9] = gray[x-1][y+3]
-			circle[10] = gray[x-2][y+2]
-			circle[11] = gray[x-3][y+1]
-			circle[13] = gray[x-3][y-1]
-			circle[14] = gray[x-2][y-2]
-			circle[15] = gray[x-1][y-3]
+			circle[1] = gray[getPixel(x+1, y-3, width)]
+			circle[2] = gray[getPixel(x+2, y-2, width)]
+			circle[3] = gray[getPixel(x+3, y-1, width)]
+			circle[5] = gray[getPixel(x+3, y+1, width)]
+			circle[6] = gray[getPixel(x+2, y+2, width)]
+			circle[7] = gray[getPixel(x+1, y+3, width)]
+			circle[9] = gray[getPixel(x-1, y+3, width)]
+			circle[10] = gray[getPixel(x-2, y+2, width)]
+			circle[11] = gray[getPixel(x-3, y+1, width)]
+			circle[13] = gray[getPixel(x-3, y-1, width)]
+			circle[14] = gray[getPixel(x-2, y-2, width)]
+			circle[15] = gray[getPixel(x-1, y-3, width)]
 
-			// find indexes of invalid surrounding points in the circle
 			invalidIndexes := make([]int, 0, 12)
 			for index, value := range circle {
 				if value < deltaMax && value > deltaMin {
@@ -109,7 +129,6 @@ func main() {
 			}
 
 			if len(invalidIndexes) > 1 {
-				// skip if there are more than 4 invalid indexes
 				if len(invalidIndexes) > 4 {
 					continue
 				}
@@ -119,7 +138,6 @@ func main() {
 					checkBright = false
 				}
 
-				// count continuous valid pixels in a circle
 				startIndex := invalidIndexes[0]
 				nextIndex := startIndex + 1
 				if nextIndex > 15 {
@@ -132,7 +150,7 @@ func main() {
 					point := circle[nextIndex]
 					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
 						currentValid += 1
-						intensitySum += math.Abs(float64(pixelGray) - float64(point))
+						intensitySum += math.Abs(float64(grayPixel) - float64(point))
 					} else {
 						currentValid = 0
 					}
@@ -145,16 +163,14 @@ func main() {
 					}
 				}
 
-				// skip if count is less than 12
 				if maxValid < 12 {
 					continue
 				}
 
-				// get average intensity
 				intensityAverage := intensitySum / float64(maxValid)
-				intensityDifference := float64(circle[0]) - intensityAverage
-				if intensityAverage > float64(circle[0]) {
-					intensityDifference = intensityAverage - float64(circle[0])
+				intensityDifference := float64(grayPixel) - intensityAverage
+				if intensityAverage > float64(grayPixel) {
+					intensityDifference = intensityAverage - float64(grayPixel)
 				}
 
 				points = append(
@@ -169,7 +185,11 @@ func main() {
 			}
 		}
 	}
-
+	for t := 0; t < threads; t += 1 {
+		wg.Add(1)
+		go fast(t)
+	}
+	wg.Wait()
 	fmt.Printf(
 		"find all candidates in %f ms\n",
 		(math.Round(float64(time.Now().UnixNano()))-fastTimeStart)/1e+6,
@@ -219,8 +239,8 @@ func main() {
 	)
 
 	for i := range pointsToDrawY {
-		drawSquare(grid, pointsToDrawY[i].X, pointsToDrawY[i].Y)
+		drawSquare(img.Pix, pointsToDrawY[i].X, pointsToDrawY[i].Y, width)
 	}
 
-	SaveGrid(format, grid)
+	encodeImage(img, format)
 }
