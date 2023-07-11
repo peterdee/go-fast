@@ -17,10 +17,14 @@ func combineClusters(
 	for _, currentClusterPoint := range cluster {
 		for _, lastClusterPoint := range lastCluster {
 			primaryDifference := currentClusterPoint.X - lastClusterPoint.X
-			secondaryDifference := int(math.Abs(float64(currentClusterPoint.Y) - float64(lastClusterPoint.Y)))
+			secondaryDifference := int(
+				math.Abs(float64(currentClusterPoint.Y) - float64(lastClusterPoint.Y)),
+			)
 			if primarySortField != 'x' {
 				primaryDifference = currentClusterPoint.Y - lastClusterPoint.Y
-				secondaryDifference = int(math.Abs(float64(currentClusterPoint.X) - float64(lastClusterPoint.X)))
+				secondaryDifference = int(
+					math.Abs(float64(currentClusterPoint.X) - float64(lastClusterPoint.X)),
+				)
 			}
 			if primaryDifference < radius && secondaryDifference < radius {
 				combine = true
@@ -161,4 +165,44 @@ func nms(
 		true,
 		primarySortField,
 	)
+}
+
+// apply NMS recursively until the length of point array stops changing
+func nmsRecursion(
+	array []Point,
+	radius int,
+	prevLength int,
+	isFirst bool,
+) []Point {
+	clusteredX := nms(
+		array,
+		radius,
+		Point{
+			IsEmpty: true,
+		},
+		[]Point{},
+		[][]Point{},
+		false,
+		'x',
+	)
+	lenX := len(clusteredX)
+	if !isFirst && lenX == prevLength {
+		return clusteredX
+	}
+	clusteredY := nms(
+		clusteredX,
+		radius,
+		Point{
+			IsEmpty: true,
+		},
+		[]Point{},
+		[][]Point{},
+		false,
+		'y',
+	)
+	lenY := len(clusteredY)
+	if lenX == lenY {
+		return clusteredY
+	}
+	return nmsRecursion(clusteredY, radius, lenY, false)
 }

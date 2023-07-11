@@ -9,10 +9,10 @@ import (
 )
 
 const BORDER int = 5
-const RADIUS int = 20
-const SAMPLE string = "samples/6.jpg"
+const RADIUS int = 15
+const SAMPLE string = "samples/7.png"
 const SAVE_GRAYSCALE bool = true
-const THRESHOLD uint8 = 120
+const THRESHOLD uint8 = 30
 
 type Point struct {
 	IntensityDifference float64
@@ -53,7 +53,6 @@ func main() {
 		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
 	)
 
-	candidatesCount := 0
 	points := []Point{}
 
 	fastTimeStart := math.Round(float64(time.Now().UnixNano()))
@@ -104,10 +103,6 @@ func main() {
 			if brighterCount < 3 && darkerCount < 3 {
 				continue
 			}
-
-			mu.Lock()
-			candidatesCount += 1
-			mu.Unlock()
 
 			circle[1] = gray[getPixel(x+1, y-3, width)]
 			circle[2] = gray[getPixel(x+2, y-2, width)]
@@ -198,38 +193,12 @@ func main() {
 		(math.Round(float64(time.Now().UnixNano()))-fastTimeStart)/1e+6,
 	)
 
-	nmsXTimeStart := math.Round(float64(time.Now().UnixNano()))
-	pointsToDrawX := nms(
-		points,
-		RADIUS,
-		Point{
-			IsEmpty: true,
-		},
-		[]Point{},
-		[][]Point{},
-		false,
-		'x',
-	)
-	nmsXTime := (math.Round(float64(time.Now().UnixNano())) - nmsXTimeStart) / 1e+6
-	nmsYTimeStart := math.Round(float64(time.Now().UnixNano()))
-	pointsToDrawY := nms(
-		pointsToDrawX,
-		RADIUS,
-		Point{
-			IsEmpty: true,
-		},
-		[]Point{},
-		[][]Point{},
-		false,
-		'y',
-	)
-	nmsYTime := (math.Round(float64(time.Now().UnixNano())) - nmsYTimeStart) / 1e+6
-
+	nmsTimeStart := math.Round(float64(time.Now().UnixNano()))
+	nmsPoints := nmsRecursion(points, RADIUS, 0, true)
+	nmsTime := (math.Round(float64(time.Now().UnixNano())) - nmsTimeStart) / 1e+6
 	fmt.Printf(
-		"NMS time: %f ms (x) + %f ms (y) = %f ms (total)\n",
-		nmsXTime,
-		nmsYTime,
-		nmsXTime+nmsYTime,
+		"NMS time: %f ms\n",
+		nmsTime,
 	)
 
 	fmt.Printf(
@@ -238,18 +207,17 @@ func main() {
 	)
 
 	fmt.Printf(
-		"Points: %d (candidates), %d (before NMS), %d (after NMS)\n",
-		candidatesCount,
+		"Points: %d (before NMS), %d (after NMS)\n",
 		len(points),
-		len(pointsToDrawY),
+		len(nmsPoints),
 	)
 
 	if SAVE_GRAYSCALE {
 		img.Pix = gray
 	}
 
-	for i := range pointsToDrawY {
-		drawSquare(img.Pix, pointsToDrawY[i].X, pointsToDrawY[i].Y, width)
+	for i := range nmsPoints {
+		drawSquare(img.Pix, nmsPoints[i].X, nmsPoints[i].Y, width)
 	}
 
 	encodeImage(img, format)
