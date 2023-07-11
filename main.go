@@ -9,9 +9,10 @@ import (
 )
 
 const BORDER int = 5
-const RADIUS int = 25
-const SAMPLE string = "samples/2.jpg"
-const THRESHOLD int = 120
+const RADIUS int = 20
+const SAMPLE string = "samples/6.jpg"
+const SAVE_GRAYSCALE bool = true
+const THRESHOLD uint8 = 120
 
 type Point struct {
 	IntensityDifference float64
@@ -24,12 +25,11 @@ func main() {
 	img, format := decodeSource(SAMPLE)
 	width, height := img.Rect.Max.X, img.Rect.Max.Y
 
-	threshold := uint8(THRESHOLD)
-
 	pixLen := len(img.Pix)
 	threads := runtime.NumCPU()
 	pixPerThread := getPixPerThread(pixLen, threads)
 
+	var mu = &sync.Mutex{}
 	var wg sync.WaitGroup
 
 	grayTimeStart := math.Round(float64(time.Now().UnixNano()))
@@ -49,7 +49,7 @@ func main() {
 	}
 	wg.Wait()
 	fmt.Printf(
-		"convert to gray in %f ms\n",
+		"Grayscale time: %f ms\n",
 		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
 	)
 
@@ -64,7 +64,6 @@ func main() {
 		for i := startIndex; i < endIndex; i += 4 {
 			x, y := getCoordinates(i/4, width)
 
-			// skip border pixels
 			if x < BORDER || x > width-BORDER ||
 				y < BORDER || y > height-BORDER {
 				continue
@@ -77,8 +76,8 @@ func main() {
 			circle[8] = gray[getPixel(x, y+3, width)]
 			circle[12] = gray[getPixel(x-3, y, width)]
 
-			deltaMax := uint8(clamp(int(grayPixel)+int(threshold), 0, 255))
-			deltaMin := uint8(clamp(int(grayPixel)-int(threshold), 0, 255))
+			deltaMax := uint8(clamp(int(grayPixel)+int(THRESHOLD), 0, 255))
+			deltaMin := uint8(clamp(int(grayPixel)-int(THRESHOLD), 0, 255))
 
 			brighterCount, darkerCount := 0, 0
 			if circle[0] > deltaMax {
@@ -106,7 +105,9 @@ func main() {
 				continue
 			}
 
+			mu.Lock()
 			candidatesCount += 1
+			mu.Unlock()
 
 			circle[1] = gray[getPixel(x+1, y-3, width)]
 			circle[2] = gray[getPixel(x+2, y-2, width)]
@@ -173,6 +174,7 @@ func main() {
 					intensityDifference = intensityAverage - float64(grayPixel)
 				}
 
+				mu.Lock()
 				points = append(
 					points,
 					Point{
@@ -182,6 +184,7 @@ func main() {
 						Y:                   y,
 					},
 				)
+				mu.Unlock()
 			}
 		}
 	}
@@ -191,7 +194,7 @@ func main() {
 	}
 	wg.Wait()
 	fmt.Printf(
-		"find all candidates in %f ms\n",
+		"FAST time: %f ms\n",
 		(math.Round(float64(time.Now().UnixNano()))-fastTimeStart)/1e+6,
 	)
 
@@ -222,21 +225,28 @@ func main() {
 	)
 	nmsYTime := (math.Round(float64(time.Now().UnixNano())) - nmsYTimeStart) / 1e+6
 
-	fmt.Println(
-		"candidates:",
-		candidatesCount,
-		"\npoints before NMS:",
-		len(points),
-		"\npoints after NMS:",
-		len(pointsToDrawY),
-	)
-
 	fmt.Printf(
 		"NMS time: %f ms (x) + %f ms (y) = %f ms (total)\n",
 		nmsXTime,
 		nmsYTime,
 		nmsXTime+nmsYTime,
 	)
+
+	fmt.Printf(
+		"Total processing time: %f ms\n",
+		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
+	)
+
+	fmt.Printf(
+		"Points: %d (candidates), %d (before NMS), %d (after NMS)\n",
+		candidatesCount,
+		len(points),
+		len(pointsToDrawY),
+	)
+
+	if SAVE_GRAYSCALE {
+		img.Pix = gray
+	}
 
 	for i := range pointsToDrawY {
 		drawSquare(img.Pix, pointsToDrawY[i].X, pointsToDrawY[i].Y, width)
