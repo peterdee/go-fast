@@ -10,9 +10,9 @@ import (
 
 const BORDER int = 5
 const RADIUS int = 15
-const SAMPLE string = "samples/7.png"
+const SAMPLE string = "samples/2.jpg"
 const SAVE_GRAYSCALE bool = true
-const THRESHOLD uint8 = 30
+const THRESHOLD uint8 = 90
 
 type Point struct {
 	IntensityDifference float64
