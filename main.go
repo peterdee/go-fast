@@ -10,9 +10,10 @@ import (
 
 const BORDER int = 5
 const RADIUS int = 15
-const SAMPLE string = "samples/2.jpg"
+const SAMPLE string = "samples/3.jpg"
 const SAVE_GRAYSCALE bool = true
 const THRESHOLD uint8 = 90
+const USE_NMS bool = true
 
 type Point struct {
 	IntensityDifference float64
@@ -124,63 +125,54 @@ func main() {
 				}
 			}
 
-			if len(invalidIndexes) > 1 {
-				if len(invalidIndexes) > 4 {
-					continue
-				}
-
-				checkBright := true
-				if darkerCount > brighterCount {
-					checkBright = false
-				}
-
-				startIndex := invalidIndexes[0]
-				nextIndex := startIndex + 1
-				if nextIndex > 15 {
-					nextIndex = 0
-				}
-				currentValid := 0
-				maxValid := 0
-				intensitySum := 0.0
-				for i := 0; i < 15; i += 1 {
-					point := circle[nextIndex]
-					if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
-						currentValid += 1
-						intensitySum += math.Abs(float64(grayPixel) - float64(point))
-					} else {
-						currentValid = 0
-					}
-					if currentValid > maxValid {
-						maxValid = currentValid
-					}
-					nextIndex += 1
-					if nextIndex > 15 {
-						nextIndex = 0
-					}
-				}
-
-				if maxValid < 12 {
-					continue
-				}
-
-				intensityAverage := intensitySum / float64(maxValid)
-				intensityDifference := float64(grayPixel) - intensityAverage
-				if intensityAverage > float64(grayPixel) {
-					intensityDifference = intensityAverage - float64(grayPixel)
-				}
-
-				mu.Lock()
-				points = append(
-					points,
-					Point{
-						IntensityDifference: intensityDifference,
-						IsEmpty:             false,
-						X:                   x,
-						Y:                   y,
-					},
-				)
-				mu.Unlock()
+			invalidIndexesLength := len(invalidIndexes)
+			if invalidIndexesLength > 4 {
+				continue
 			}
+			checkBright := darkerCount < brighterCount
+
+			nextIndex := 0
+			if invalidIndexesLength > 0 {
+				nextIndex = clamp(invalidIndexes[0]+1, 0, 15)
+			}
+			currentValid := 0
+			maxValid := 0
+			intensitySum := 0.0
+			for i := 0; i < 15; i += 1 {
+				point := circle[nextIndex]
+				if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
+					currentValid += 1
+					intensitySum += math.Abs(float64(grayPixel) - float64(point))
+				} else {
+					currentValid = 0
+				}
+				if currentValid > maxValid {
+					maxValid = currentValid
+				}
+				nextIndex = clamp(nextIndex+1, 0, 15)
+			}
+
+			if maxValid < 12 {
+				continue
+			}
+
+			intensityAverage := intensitySum / float64(maxValid)
+			intensityDifference := float64(grayPixel) - intensityAverage
+			if intensityAverage > float64(grayPixel) {
+				intensityDifference = intensityAverage - float64(grayPixel)
+			}
+
+			mu.Lock()
+			points = append(
+				points,
+				Point{
+					IntensityDifference: intensityDifference,
+					IsEmpty:             false,
+					X:                   x,
+					Y:                   y,
+				},
+			)
+			mu.Unlock()
 		}
 	}
 	for t := 0; t < threads; t += 1 {
@@ -193,31 +185,39 @@ func main() {
 		(math.Round(float64(time.Now().UnixNano()))-fastTimeStart)/1e+6,
 	)
 
-	nmsTimeStart := math.Round(float64(time.Now().UnixNano()))
-	nmsPoints := nmsRecursion(points, RADIUS, 0, true)
-	nmsTime := (math.Round(float64(time.Now().UnixNano())) - nmsTimeStart) / 1e+6
 	fmt.Printf(
-		"NMS time: %f ms\n",
-		nmsTime,
+		"Points: %d (before NMS)\n",
+		len(points),
 	)
+
+	drawPoints := points
+
+	if USE_NMS {
+		nmsTimeStart := math.Round(float64(time.Now().UnixNano()))
+		nmsPoints := nmsRecursion(points, RADIUS, 0, true)
+		nmsTime := (math.Round(float64(time.Now().UnixNano())) - nmsTimeStart) / 1e+6
+		fmt.Printf(
+			"NMS time: %f ms\n",
+			nmsTime,
+		)
+		fmt.Printf(
+			"Points: %d (after NMS)\n",
+			len(nmsPoints),
+		)
+		drawPoints = nmsPoints
+	}
 
 	fmt.Printf(
 		"Total processing time: %f ms\n",
 		(math.Round(float64(time.Now().UnixNano()))-grayTimeStart)/1e+6,
 	)
 
-	fmt.Printf(
-		"Points: %d (before NMS), %d (after NMS)\n",
-		len(points),
-		len(nmsPoints),
-	)
-
 	if SAVE_GRAYSCALE {
 		img.Pix = gray
 	}
 
-	for i := range nmsPoints {
-		drawSquare(img.Pix, nmsPoints[i].X, nmsPoints[i].Y, width)
+	for i := range drawPoints {
+		drawSquare(img.Pix, drawPoints[i].X, drawPoints[i].Y, width)
 	}
 
 	encodeImage(img, format)
