@@ -16,10 +16,10 @@ const THRESHOLD uint8 = 90
 const USE_NMS bool = true
 
 type Point struct {
-	IntensityDifference float64
-	IsEmpty             bool
-	X                   int
-	Y                   int
+	IntensitySum float64
+	IsEmpty      bool
+	X            int
+	Y            int
 }
 
 func main() {
@@ -64,56 +64,60 @@ func main() {
 		for i := startIndex; i < endIndex; i += 4 {
 			x, y := getCoordinates(i/4, width)
 
+			// TODO: handle border pixels, skip for now
 			if x < BORDER || x > width-BORDER ||
 				y < BORDER || y > height-BORDER {
 				continue
 			}
 
-			circle := [16]uint8{}
+			// high-speed test
+			brighterCount, darkerCount := 0, 0
 			grayPixel := gray[i]
-			circle[0] = gray[getPixel(x, y-3, width)]
-			circle[4] = gray[getPixel(x+3, y, width)]
-			circle[8] = gray[getPixel(x, y+3, width)]
-			circle[12] = gray[getPixel(x-3, y, width)]
-
 			deltaMax := uint8(clamp(int(grayPixel)+int(THRESHOLD), 0, 255))
 			deltaMin := uint8(clamp(int(grayPixel)-int(THRESHOLD), 0, 255))
-
-			brighterCount, darkerCount := 0, 0
-			if circle[0] > deltaMax {
+			point0, point8 := gray[getPixel(x, y-3, width)], gray[getPixel(x, y+3, width)]
+			if point0 > deltaMax {
 				brighterCount += 1
-			} else if circle[0] < deltaMin {
+			} else if point0 < deltaMin {
 				darkerCount += 1
 			}
-			if circle[4] > deltaMax {
+			if point8 > deltaMax {
 				brighterCount += 1
-			} else if circle[4] < deltaMin {
+			} else if point8 < deltaMin {
 				darkerCount += 1
 			}
-			if circle[8] > deltaMax {
+			if brighterCount+darkerCount == 0 {
+				continue
+			}
+			point4, point12 := gray[getPixel(x+3, y, width)], gray[getPixel(x-3, y, width)]
+			if point4 > deltaMax {
 				brighterCount += 1
-			} else if circle[8] < deltaMin {
+			} else if point4 < deltaMin {
 				darkerCount += 1
 			}
-			if circle[12] > deltaMax {
+			if point12 > deltaMax {
 				brighterCount += 1
-			} else if circle[12] < deltaMin {
+			} else if point12 < deltaMin {
 				darkerCount += 1
 			}
-
 			if brighterCount < 3 && darkerCount < 3 {
 				continue
 			}
 
+			circle := [16]uint8{}
+			circle[0] = point0
 			circle[1] = gray[getPixel(x+1, y-3, width)]
 			circle[2] = gray[getPixel(x+2, y-2, width)]
 			circle[3] = gray[getPixel(x+3, y-1, width)]
+			circle[4] = point4
 			circle[5] = gray[getPixel(x+3, y+1, width)]
 			circle[6] = gray[getPixel(x+2, y+2, width)]
 			circle[7] = gray[getPixel(x+1, y+3, width)]
+			circle[8] = point8
 			circle[9] = gray[getPixel(x-1, y+3, width)]
 			circle[10] = gray[getPixel(x-2, y+2, width)]
 			circle[11] = gray[getPixel(x-3, y+1, width)]
+			circle[12] = point12
 			circle[13] = gray[getPixel(x-3, y-1, width)]
 			circle[14] = gray[getPixel(x-2, y-2, width)]
 			circle[15] = gray[getPixel(x-1, y-3, width)]
@@ -129,8 +133,8 @@ func main() {
 			if invalidIndexesLength > 4 {
 				continue
 			}
-			checkBright := darkerCount < brighterCount
 
+			checkBright := darkerCount < brighterCount
 			nextIndex := 0
 			if invalidIndexesLength > 0 {
 				nextIndex = clamp(invalidIndexes[0]+1, 0, 15)
@@ -142,13 +146,13 @@ func main() {
 				point := circle[nextIndex]
 				if (checkBright && point > deltaMax) || (!checkBright && point < deltaMin) {
 					currentValid += 1
-					intensitySum += math.Abs(float64(grayPixel) - float64(point))
 				} else {
 					currentValid = 0
 				}
 				if currentValid > maxValid {
 					maxValid = currentValid
 				}
+				intensitySum += math.Abs(float64(grayPixel) - float64(point))
 				nextIndex = clamp(nextIndex+1, 0, 15)
 			}
 
@@ -156,20 +160,14 @@ func main() {
 				continue
 			}
 
-			intensityAverage := intensitySum / float64(maxValid)
-			intensityDifference := float64(grayPixel) - intensityAverage
-			if intensityAverage > float64(grayPixel) {
-				intensityDifference = intensityAverage - float64(grayPixel)
-			}
-
 			mu.Lock()
 			points = append(
 				points,
 				Point{
-					IntensityDifference: intensityDifference,
-					IsEmpty:             false,
-					X:                   x,
-					Y:                   y,
+					IntensitySum: intensitySum,
+					IsEmpty:      false,
+					X:            x,
+					Y:            y,
 				},
 			)
 			mu.Unlock()

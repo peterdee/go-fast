@@ -109,7 +109,7 @@ func nms(
 			sort.SliceStable(
 				points,
 				func(i, j int) bool {
-					return points[i].IntensityDifference > points[j].IntensityDifference
+					return points[i].IntensitySum > points[j].IntensitySum
 				},
 			)
 			result = append(result, points[0])
